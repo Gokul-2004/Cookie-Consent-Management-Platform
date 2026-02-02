@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CMP Integration Example</title>
+
+  <!--
+    CMP Embed Script
+    Replace YOUR_SITE_ID with your actual site ID from the admin panel
+  -->
+  <script async src="/embed/embed.js?siteId=223e4567-e89b-12d3-a456-426614174111&apiUrl=http://localhost:3001"></script>
+
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 60px 20px;
+      border-radius: 12px;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .hero h1 {
+      margin: 0 0 10px 0;
+      font-size: 2.5em;
+    }
+
+    .section {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 30px;
+      margin-bottom: 30px;
+    }
+
+    .section h2 {
+      color: #2d3748;
+      margin-top: 0;
+    }
+
+    .code-block {
+      background: #1a202c;
+      color: #e2e8f0;
+      padding: 20px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .alert {
+      padding: 15px 20px;
+      border-radius: 6px;
+      margin: 20px 0;
+    }
+
+    .alert-info {
+      background: #ebf8ff;
+      border-left: 4px solid #4299e1;
+      color: #2c5282;
+    }
+
+    .alert-success {
+      background: #f0fff4;
+      border-left: 4px solid #48bb78;
+      color: #22543d;
+    }
+
+    .alert-warning {
+      background: #fffaf0;
+      border-left: 4px solid #ed8936;
+      color: #7c2d12;
+    }
+
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background: #4299e1;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 500;
+      transition: background 0.2s;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .button:hover {
+      background: #3182ce;
+    }
+
+    .button-outline {
+      background: transparent;
+      border: 2px solid #4299e1;
+      color: #4299e1;
+    }
+
+    .button-outline:hover {
+      background: #4299e1;
+      color: white;
+    }
+
+    .script-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .script-list li {
+      padding: 12px;
+      margin: 8px 0;
+      background: white;
+      border-radius: 6px;
+      border-left: 4px solid #48bb78;
+    }
+
+    .blocked {
+      border-left-color: #f56565;
+    }
+
+    footer {
+      text-align: center;
+      padding: 40px 20px;
+      color: #718096;
+      border-top: 1px solid #e2e8f0;
+      margin-top: 60px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="hero">
+    <h1>🍪 CMP Integration Example</h1>
+    <p>This page demonstrates cookie consent management with script blocking</p>
+  </div>
+
+  <div class="alert alert-info">
+    <strong>ℹ️ About This Demo:</strong> This page uses the CMP SDK to manage cookie consent.
+    Scripts are blocked until you give consent. Clear your cookies and reload to see the banner again.
+  </div>
+
+  <div class="section">
+    <h2>🎯 How It Works</h2>
+    <p>
+      The CMP (Consent Management Platform) loads before any tracking scripts and blocks them
+      until the user provides consent. Here's what happens:
+    </p>
+    <ol>
+      <li><strong>CMP SDK loads first</strong> - The embed script initializes</li>
+      <li><strong>Configuration fetched</strong> - Banner settings loaded from API</li>
+      <li><strong>Banner displayed</strong> - User sees consent options</li>
+      <li><strong>Scripts enabled</strong> - Only after user consent</li>
+      <li><strong>Consent recorded</strong> - Saved to backend database</li>
+    </ol>
+  </div>
+
+  <div class="section">
+    <h2>📜 Scripts on This Page</h2>
+
+    <div class="alert alert-success">
+      <strong>✅ Always Running (Necessary):</strong>
+      <ul class="script-list">
+        <li>CMP SDK - Consent management (this page's styles)</li>
+        <li>Page functionality scripts</li>
+      </ul>
+    </div>
+
+    <div class="alert alert-warning">
+      <strong>🚫 Blocked Until Consent:</strong>
+      <ul class="script-list blocked">
+        <li>Google Analytics (Analytics category)</li>
+        <li>Facebook Pixel (Marketing category)</li>
+        <li>Hotjar (Analytics category)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🧪 Test the Integration</h2>
+    <p>Use these buttons to interact with the consent manager:</p>
+
+    <button class="button" onclick="showConsentManager()">
+      Open Consent Settings
+    </button>
+
+    <button class="button button-outline" onclick="checkConsent()">
+      Check Current Consent
+    </button>
+
+    <button class="button button-outline" onclick="clearCookiesAndReload()">
+      Clear & Reload (Reset Demo)
+    </button>
+
+    <div id="consent-status" style="margin-top: 20px; padding: 15px; background: #f7fafc; border-radius: 6px; display: none;">
+      <h3>Current Consent Status:</h3>
+      <pre id="consent-output" style="background: #1a202c; color: #e2e8f0; padding: 15px; border-radius: 6px; overflow-x: auto;"></pre>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>💻 View the Code</h2>
+    <p>Here's how scripts are blocked on this page:</p>
+
+    <h3>Google Analytics (Blocked)</h3>
+    <div class="code-block">&lt;script type="text/plain"
+        data-type="application/javascript"
+        data-name="google-analytics"
+        data-cookiecategory="analytics"&gt;
+  console.log('Google Analytics loaded with consent!');
+  // Your GA tracking code here
+&lt;/script&gt;</div>
+
+    <h3>Facebook Pixel (Blocked)</h3>
+    <div class="code-block">&lt;script type="text/plain"
+        data-type="application/javascript"
+        data-name="facebook-pixel"
+        data-cookiecategory="marketing"&gt;
+  console.log('Facebook Pixel loaded with consent!');
+  // Your Facebook Pixel code here
+&lt;/script&gt;</div>
+  </div>
+
+  <footer>
+    <p>
+      <strong>CMP Integration Example</strong><br>
+      Built with ❤️ using Klaro Consent Manager
+    </p>
+    <p style="font-size: 14px; color: #a0aec0;">
+      Open your browser console to see debug messages<br>
+      Add <code>?cmp-debug=true</code> to the URL for verbose logging
+    </p>
+  </footer>
+
+  <!--
+    Example: Google Analytics (BLOCKED until consent)
+    This script will NOT run until user accepts "analytics" cookies
+  -->
+  <script type="text/plain"
+          data-type="application/javascript"
+          data-name="google-analytics"
+          data-cookiecategory="analytics">
+    console.log('✅ Google Analytics loaded! User gave consent for analytics.');
+
+    // Simulate GA tracking
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'GA_MEASUREMENT_ID');
+
+    // Show notification
+    var notification = document.createElement('div');
+    notification.className = 'alert alert-success';
+    notification.innerHTML = '<strong>✅ Analytics Enabled:</strong> Google Analytics is now tracking.';
+    notification.style.position = 'fixed';
+    notification.style.top = '20px';
+    notification.style.right = '20px';
+    notification.style.zIndex = '9998';
+    notification.style.animation = 'slideIn 0.3s ease-out';
+    document.body.appendChild(notification);
+
+    setTimeout(function() {
+      notification.style.animation = 'slideOut 0.3s ease-out';
+      setTimeout(function() {
+        notification.remove();
+      }, 300);
+    }, 3000);
+  </script>
+
+  <!--
+    Example: Facebook Pixel (BLOCKED until consent)
+    This script will NOT run until user accepts "marketing" cookies
+  -->
+  <script type="text/plain"
+          data-type="application/javascript"
+          data-name="facebook-pixel"
+          data-cookiecategory="marketing">
+    console.log('✅ Facebook Pixel loaded! User gave consent for marketing.');
+
+    // Simulate Facebook Pixel
+    window.fbq = window.fbq || function() {
+      console.log('FB Pixel tracking:', arguments);
+    };
+
+    // Show notification
+    var notification = document.createElement('div');
+    notification.className = 'alert alert-success';
+    notification.innerHTML = '<strong>✅ Marketing Enabled:</strong> Facebook Pixel is now tracking.';
+    notification.style.position = 'fixed';
+    notification.style.top = '80px';
+    notification.style.right = '20px';
+    notification.style.zIndex = '9998';
+    notification.style.animation = 'slideIn 0.3s ease-out';
+    document.body.appendChild(notification);
+
+    setTimeout(function() {
+      notification.style.animation = 'slideOut 0.3s ease-out';
+      setTimeout(function() {
+        notification.remove();
+      }, 300);
+    }, 3000);
+  </script>
+
+  <!--
+    Example: Hotjar (BLOCKED until consent)
+  -->
+  <script type="text/plain"
+          data-type="application/javascript"
+          data-name="hotjar"
+          data-cookiecategory="analytics">
+    console.log('✅ Hotjar loaded! User gave consent for analytics.');
+  </script>
+
+  <!-- Helper functions for demo -->
+  <script>
+    // These functions are NOT blocked (no data-cookiecategory)
+
+    function showConsentManager() {
+      if (window.Klaro) {
+        window.Klaro.show();
+      } else {
+        alert('CMP not loaded yet. Please wait a moment and try again.');
+      }
+    }
+
+    function checkConsent() {
+      var statusDiv = document.getElementById('consent-status');
+      var outputPre = document.getElementById('consent-output');
+
+      if (window.Klaro) {
+        var manager = window.Klaro.getManager();
+        var consents = manager.consents;
+
+        var output = {
+          cmpLoaded: true,
+          klaroVersion: window.Klaro.version || 'unknown',
+          userId: window.CMPConsent?.userId,
+          siteId: window.CMPConsent?.siteId,
+          consents: consents,
+          consentGiven: Object.keys(consents).some(function(key) {
+            return consents[key] === true;
+          })
+        };
+
+        outputPre.textContent = JSON.stringify(output, null, 2);
+        statusDiv.style.display = 'block';
+      } else {
+        outputPre.textContent = JSON.stringify({
+          cmpLoaded: false,
+          message: 'CMP not loaded yet'
+        }, null, 2);
+        statusDiv.style.display = 'block';
+      }
+    }
+
+    function clearCookiesAndReload() {
+      if (confirm('This will clear all cookies and reload the page. Continue?')) {
+        // Clear cookies
+        document.cookie.split(";").forEach(function(c) {
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+
+        // Reload
+        window.location.reload();
+      }
+    }
+
+    // Auto-check consent after 2 seconds
+    setTimeout(function() {
+      console.log('%c📊 CMP Status Check', 'font-size: 16px; font-weight: bold; color: #4299e1;');
+      console.log('CMP Loaded:', !!window.CMPConsent);
+      console.log('Klaro Loaded:', !!window.Klaro);
+      console.log('Initialized:', window.CMPConsent?.initialized);
+
+      if (window.CMPConsent?.initialized) {
+        console.log('Site ID:', window.CMPConsent.siteId);
+        console.log('User ID:', window.CMPConsent.userId);
+        console.log('Config:', window.CMPConsent.config);
+      }
+    }, 2000);
+  </script>
+
+  <style>
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+    }
+  </style>
+
+</body>
+</html>

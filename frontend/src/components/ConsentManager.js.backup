@@ -1,0 +1,265 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import * as Klaro from 'klaro/dist/klaro-no-css'
+import 'klaro/dist/klaro.css'
+import {
+  sendConsentToBackend,
+  buildChoicesFromConsent,
+  getUserId,
+  storeConsentLocally,
+  queueFailedConsent,
+  processConsentQueue,
+} from '../utils/consentApi'
+import { getSiteId } from '../utils/getSiteId'
+import { adminConfigToKlaro, applyCustomStyles } from '../utils/configMapper'
+
+export default function ConsentManager() {
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const initializeKlaro = async () => {
+      // Get API URL from environment
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+      // Get dynamic site ID
+      let siteId
+      try {
+        siteId = getSiteId()
+      } catch (error) {
+        const errorMsg = `Failed to determine siteId: ${error.message}`
+        console.error('[CMP]', errorMsg)
+        setError(errorMsg)
+        setLoading(false)
+        return
+      }
+
+      // Validate site ID is available
+      if (!siteId) {
+        const errorMsg = 'Could not determine siteId. Please provide it via URL parameter (?siteId=...) or configure NEXT_PUBLIC_SITE_ID in .env.local'
+        console.warn('[CMP]', errorMsg)
+        setError(errorMsg)
+        setLoading(false)
+        return
+      }
+
+      try {
+        console.log(`[CMP] Fetching consent config for site: ${siteId}`)
+
+        // Process any queued consent submissions from previous sessions
+        processConsentQueue(apiUrl).catch(err =>
+          console.error('[CMP] Error processing consent queue:', err)
+        )
+
+        // Fetch configuration from backend API
+        const response = await fetch(`${apiUrl}/config/${siteId}`)
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch config: ${response.status} ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        console.log('[CMP] Consent config loaded:', data)
+
+        // Convert admin config to Klaro format
+        let klaroConfig
+
+        if (data.config && Object.keys(data.config).length > 0) {
+          // Use admin configuration if available
+          klaroConfig = adminConfigToKlaro(data)
+
+          // Apply custom styles
+          applyCustomStyles(data.config.styles)
+
+          console.log('[CMP] Using admin configuration')
+        } else {
+          // Fallback to default configuration
+          console.log('[CMP] Using default configuration (no admin config found)')
+          klaroConfig = {
+          // Element ID for Klaro modal
+          elementID: 'klaro',
+
+          // Storage method (cookie or localStorage)
+          storageMethod: 'cookie',
+          cookieName: 'klaro',
+          cookieExpiresAfterDays: 365,
+
+          // Privacy policy
+          privacyPolicy: '/privacy',
+
+          // Default consent state
+          default: false,
+          mustConsent: false,
+          acceptAll: true,
+          hideDeclineAll: false,
+          hideLearnMore: false,
+
+          // Display as banner or modal
+          noticeAsModal: false,
+
+          // Translations
+          translations: {
+            en: {
+              consentModal: {
+                title: 'Cookie Consent',
+                description: 'We use cookies to enhance your browsing experience, analyze site traffic, and personalize content. Please choose which cookies you want to accept.',
+              },
+              consentNotice: {
+                changeDescription: 'There were changes since your last visit, please update your consent.',
+                description: 'We use cookies to enhance your browsing experience and analyze our traffic.',
+                learnMore: 'Learn more',
+              },
+              purposeItem: {
+                service: 'Service',
+                services: 'Services',
+              },
+              ok: 'Accept All',
+              save: 'Save Settings',
+              decline: 'Decline All',
+              close: 'Close',
+              acceptAll: 'Accept All',
+              acceptSelected: 'Save Settings',
+              service: {
+                disableAll: {
+                  title: 'Toggle all services',
+                  description: 'Use this switch to enable/disable all services.',
+                },
+                optOut: {
+                  title: '(opt-out)',
+                  description: 'This service is loaded by default (but you can opt out)',
+                },
+                required: {
+                  title: '(always required)',
+                  description: 'This service is always required',
+                },
+                purposes: 'Purposes',
+                purpose: 'Purpose',
+              },
+              poweredBy: 'Powered by Klaro',
+            },
+          },
+
+            // Services from backend config
+            services: [
+              {
+                name: 'necessary',
+                title: 'Necessary Cookies',
+                description: 'These cookies are essential for the website to function properly.',
+                purposes: ['functional'],
+                required: true,
+                default: true,
+              },
+              {
+                name: 'analytics',
+                title: 'Analytics',
+                description: 'These cookies help us understand how visitors interact with our website.',
+                purposes: ['analytics'],
+                default: false,
+              },
+              {
+                name: 'marketing',
+                title: 'Marketing',
+                description: 'These cookies are used to show you relevant advertisements.',
+                purposes: ['marketing'],
+                default: false,
+              },
+            ],
+          }
+        }
+
+        // Add callback to Klaro config
+        klaroConfig.callback = async (consent, service) => {
+            console.log('[CMP] 🔔 Consent event triggered:', {
+              consent,
+              service,
+              timestamp: new Date().toISOString(),
+            })
+
+            try {
+              // Build choices object from Klaro consent
+              const choices = buildChoicesFromConsent(consent, klaroConfig.services)
+
+              // Get user ID (null for anonymous users)
+              const userId = getUserId()
+
+              console.log('[CMP] 📤 Preparing to send consent:', {
+                siteId,
+                userId: userId || 'anonymous',
+                choices,
+              })
+
+              // Store consent locally as backup
+              storeConsentLocally(siteId, choices)
+
+              // Send consent to backend with retry logic
+              const result = await sendConsentToBackend(apiUrl, siteId, userId, choices)
+
+              if (result.success) {
+                console.log('[CMP] ✅ Consent successfully recorded in backend')
+              } else {
+                console.warn('[CMP] ⚠️ Failed to record consent in backend after retries')
+
+                // Queue for later retry
+                queueFailedConsent({ siteId, userId, choices })
+              }
+            } catch (error) {
+              console.error('[CMP] ❌ Error in consent callback:', error)
+
+              // Still queue for retry even if callback fails
+              try {
+                const choices = buildChoicesFromConsent(consent, klaroConfig.services)
+                const userId = getUserId()
+                queueFailedConsent({ siteId, userId, choices })
+              } catch (queueError) {
+                console.error('[CMP] Failed to queue consent:', queueError)
+              }
+            }
+        }
+
+        // Store config globally for Klaro
+        window.klaroConfig = klaroConfig
+
+        // Initialize Klaro
+        console.log('[CMP] 🚀 Initializing Klaro...')
+        Klaro.setup(klaroConfig)
+
+        setLoading(false)
+        console.log('[CMP] ✓ Klaro initialized successfully')
+
+      } catch (error) {
+        console.error('[CMP] ❌ Error initializing Klaro consent manager:', error)
+        setError(error.message)
+        setLoading(false)
+      }
+    }
+
+    // Only run on client side
+    if (typeof window !== 'undefined') {
+      initializeKlaro()
+    }
+  }, []) // Empty dependency array - run once on mount
+
+  // Error display (for development)
+  if (process.env.NODE_ENV === 'development' && error) {
+    return (
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        background: '#ff4444',
+        color: 'white',
+        padding: '15px',
+        borderRadius: '8px',
+        maxWidth: '400px',
+        zIndex: 9999,
+        fontSize: '14px',
+      }}>
+        <strong>⚠️ Consent Manager Error:</strong>
+        <p style={{ margin: '10px 0 0 0' }}>{error}</p>
+      </div>
+    )
+  }
+
+  return null
+}
